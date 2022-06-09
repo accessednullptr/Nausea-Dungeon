@@ -41,7 +41,6 @@ protected:
 	void UpdatePreviewActor(bool bActive, const FTransform& PlacementTransform, APlacementActor* PlacementActor);
 
 	void OnBuildPressed();
-	void OnBuildReleased();
 	void OnCancelBuildPressed();
 
 	void OnRotatePlacement();

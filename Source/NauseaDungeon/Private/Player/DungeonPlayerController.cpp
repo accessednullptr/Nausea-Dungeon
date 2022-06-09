@@ -91,6 +91,7 @@ void ADungeonPlayerController::SetupInputComponent()
 
 	InputComponent->BindAction("Build", IE_Pressed, this, &ADungeonPlayerController::OnBuildPressed);
 	InputComponent->BindAction("RotatePlacement", IE_Pressed, this, &ADungeonPlayerController::OnRotatePlacement);
+	InputComponent->BindAction("CancelBuild", IE_Pressed, this, &ADungeonPlayerController::OnCancelBuildPressed);
 }
 
 bool ADungeonPlayerController::UpdatePlacement(const FHitResult& HitResult, FTransform& PlacementTransform)
@@ -247,11 +248,6 @@ void ADungeonPlayerController::OnBuildPressed()
 	{
 		DungeonPlayerState->RemoveTrapCoins(PlacementTrapCDO->GetCost());
 	}
-}
-
-void ADungeonPlayerController::OnBuildReleased()
-{
-
 }
 
 void ADungeonPlayerController::OnCancelBuildPressed()
