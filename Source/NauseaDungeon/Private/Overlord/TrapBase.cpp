@@ -6,6 +6,7 @@
 #include "Player/DungeonPlayerController.h"
 #include "Player/DungeonPlayerState.h"
 #include "Overlord/PlacementActor.h"
+#include "Components/PrimitiveComponent.h"
 #include "UI/CoreWidgetComponent.h"
 
 ATrapBase::ATrapBase(const FObjectInitializer& ObjectInitializer)
@@ -13,6 +14,23 @@ ATrapBase::ATrapBase(const FObjectInitializer& ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
+}
+
+void ATrapBase::PostInitializeComponents()
+{
+	//Shut down all component ticks on primitives. Trying to cut down tick groups.
+	TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents(this);
+	for (UPrimitiveComponent* Component : PrimitiveComponents)
+	{
+		if (!Component)
+		{
+			continue;
+		}
+
+		Component->SetComponentTickEnabled(false);
+	}
+
+	Super::PostInitializeComponents();
 }
 
 EPlacementResult ATrapBase::CanPlaceTrapOnTarget(ADungeonPlayerController* PlacementInstigator, APlacementActor* TargetPlacementActor) const
@@ -182,6 +200,23 @@ ATrapPreview::ATrapPreview(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bStartWithTickEnabled = false;
 
 	ErrorWidgetComponent = CreateDefaultSubobject<UCoreWidgetComponent>(TEXT("ErrorWidgetComponent"));
+}
+
+void ATrapPreview::PostInitializeComponents()
+{
+	TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents(this);
+	for (UPrimitiveComponent* Component : PrimitiveComponents)
+	{
+		if (!Component)
+		{
+			continue;
+		}
+
+		Component->SetComponentTickEnabled(false);
+		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	Super::PostInitializeComponents();
 }
 
 void ATrapPreview::UpdatePlacementState(EPlacementResult PlacementResult, const FTransform& NewPlacementTransform)

@@ -15,6 +15,11 @@ class NAUSEADUNGEON_API ATrapBase : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
+//~ Begin AActor Interface
+public:
+	virtual void PostInitializeComponents() override;
+//~ End AActor Interface
+
 public:
 	UFUNCTION(BlueprintCallable, Category = Trap)
 	int32 GetCost() const { return Cost; }
@@ -94,6 +99,11 @@ UCLASS()
 class NAUSEADUNGEON_API ATrapPreview : public AActor
 {
 	GENERATED_UCLASS_BODY()
+
+//~ Begin AActor Interface
+public:
+	virtual void PostInitializeComponents() override;
+//~ End AActor Interface
 
 public:
 	UFUNCTION()
