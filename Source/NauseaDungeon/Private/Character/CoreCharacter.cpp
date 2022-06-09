@@ -377,7 +377,7 @@ void ACoreCharacter::Died(float Damage, struct FDamageEvent const& DamageEvent, 
 	{
 		if (GetController())
 		{
-			GetController()->UnPossess();
+			GetController()->PawnPendingDestroy(this);
 		}
 
 		OnTargetableStateChanged.Broadcast(this, false);
@@ -409,6 +409,7 @@ void ACoreCharacter::Died(float Damage, struct FDamageEvent const& DamageEvent, 
 				continue;
 			}
 
+			MeshComponent->SetCollisionProfileName(FName("Ragdoll"));
 			MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 			MeshComponent->SetSimulatePhysics(true);
 
