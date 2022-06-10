@@ -6,6 +6,7 @@
 #include "NauseaGlobalDefines.h"
 #include "AI/DungeonPathFollowingComponent.h"
 #include "Character/DungeonCharacter.h"
+#include "Components/CapsuleComponent.h"
 
 UDungeonCharacterMovementComponent::UDungeonCharacterMovementComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -22,23 +23,21 @@ void UDungeonCharacterMovementComponent::SetMovementMode(EMovementMode NewMoveme
 {
 	Super::SetMovementMode(NewMovementMode, NewCustomMode);
 
-	if (MovementMode == MOVE_Walking)
+	if (MovementMode == MOVE_Walking && GetWorld() && !GetWorld()->GetTimerManager().IsTimerActive(AttemptResetToNavMeshTimerHandle))
 	{
-		FTimerHandle DummyHandle;
 		TWeakObjectPtr<UDungeonCharacterMovementComponent> WeakThis(this);
-
-		GetWorld()->GetTimerManager().SetTimer(DummyHandle, FTimerDelegate::CreateWeakLambda(this, [WeakThis]()
+		GetWorld()->GetTimerManager().SetTimer(AttemptResetToNavMeshTimerHandle, FTimerDelegate::CreateWeakLambda(this, [WeakThis]()
 		{
 			if (WeakThis.IsValid())
 			{
-				WeakThis->SetGroundMovementMode(MOVE_NavWalking);
-
 				if (UDungeonPathFollowingComponent* PathFollowingComponent = Cast<UDungeonPathFollowingComponent>(WeakThis->GetPathFollowingAgent()))
 				{
 					PathFollowingComponent->OnLanded();
 				}
+
+				WeakThis->SetGroundMovementMode(MOVE_NavWalking);
 			}
-		}), 0.5f, false);
+		}), 1.f, false);
 	}
 }
 
@@ -63,8 +62,11 @@ void UDungeonCharacterMovementComponent::PerformMovement(float DeltaTime)
 	{
 		bSweepWhileNavWalking = false;
 	}
-
-	Super::PerformMovement(DeltaTime);
+	
+	{
+		const FScopedPreventAttachedComponentMove PreventMeshMovement(MovementMode == MOVE_NavWalking ? GetCharacterOwner()->GetMesh() : nullptr);
+		Super::PerformMovement(DeltaTime);
+	}
 
 	//Similar concept to net correction smoothing but for nav walking.
 	const FVector DefaultRelativeLocation = GetCharacterOwner()->GetClass()->GetDefaultObject<ACharacter>()->GetMesh()->GetRelativeLocation();
@@ -91,8 +93,7 @@ bool UDungeonCharacterMovementComponent::TryToLeaveNavWalking()
 {
 	SetNavWalkingPhysics(false);
 
-	const FVector Start = GetCharacterOwner()->GetActorLocation();
-
+	const FScopedPreventAttachedComponentMove PreventMeshMovement(GetCharacterOwner()->GetMesh());
 	bool bSucceeded = true;
 	if (CharacterOwner)
 	{
@@ -143,12 +144,7 @@ bool UDungeonCharacterMovementComponent::TryToLeaveNavWalking()
 	{
 		SetMovementMode(MOVE_NavWalking);
 	}
-
-
-	const FVector End = GetCharacterOwner()->GetActorLocation();
-
-	GetCharacterOwner()->GetMesh()->AddWorldOffset((Start - End) * 0.5f);
-
+	
 	bWantsToLeaveNavWalking = !bSucceeded;
 	return bSucceeded;
 }

@@ -24,4 +24,16 @@ public:
 	virtual void OnLanded() override;
 	virtual void OnPathFinished(const FPathFollowingResult& Result) override;
 //~ End UPathFollowingComponent Interface
+
+protected:
+	UFUNCTION()
+	void OnPathFailure();
+	UFUNCTION()
+	void DecrementPathFailureCounter();
+
+protected:
+	UPROPERTY(Transient)
+	uint8 PathFailureCount = 0;
+	UPROPERTY(Transient)
+	FTimerHandle PathFailureTimer;
 };

@@ -2,6 +2,7 @@
 
 
 #include "AI/DungeonPathFollowingComponent.h"
+#include "Character/DungeonCharacter.h"
 #include "Character/DungeonCharacterMovementComponent.h"
 
 UDungeonPathFollowingComponent::UDungeonPathFollowingComponent(const FObjectInitializer& ObjectInitializer)
@@ -60,5 +61,57 @@ void UDungeonPathFollowingComponent::OnPathFinished(const FPathFollowingResult& 
 		}
 	}
 
+	if (Result.Code == EPathFollowingResult::Invalid)
+	{
+		OnPathFailure();
+	}
+
 	Super::OnPathFinished(Result);
+}
+
+void UDungeonPathFollowingComponent::OnPathFailure()
+{
+	PathFailureCount++;
+
+	if (PathFailureCount < 20)
+	{
+		TWeakObjectPtr<UDungeonPathFollowingComponent> WeakThis(this);
+		GetWorld()->GetTimerManager().SetTimer(PathFailureTimer, FTimerDelegate::CreateWeakLambda(this, [WeakThis]() {
+			if (!WeakThis.IsValid())
+			{
+				return;
+			}
+
+			WeakThis->DecrementPathFailureCounter();
+			}), 1.f, false);
+		return;
+	}
+
+	GetWorld()->GetTimerManager().ClearTimer(PathFailureTimer);
+	PathFailureCount = 0;
+
+	if (ADungeonCharacter* DungeonCharacter = MovementComp ? Cast<ADungeonCharacter>(MovementComp->GetOwner()) : nullptr)
+	{
+		DungeonCharacter->NotifyCharacterUnableToPath();
+	}
+}
+
+void UDungeonPathFollowingComponent::DecrementPathFailureCounter()
+{
+	GetWorld()->GetTimerManager().ClearTimer(PathFailureTimer);
+	PathFailureCount--;
+	if (PathFailureCount <= 0)
+	{
+		return;
+	}
+
+	TWeakObjectPtr<UDungeonPathFollowingComponent> WeakThis(this);
+	GetWorld()->GetTimerManager().SetTimer(PathFailureTimer, FTimerDelegate::CreateWeakLambda(this, [WeakThis](){
+	if (!WeakThis.IsValid())
+	{
+		return;
+	}
+
+	WeakThis->DecrementPathFailureCounter();
+	}), 1.f, false);
 }

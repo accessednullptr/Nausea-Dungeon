@@ -32,5 +32,5 @@ protected:
 	float UnstuckTime = 0.f;
 
 	UPROPERTY(Transient)
-	FVector NavWalkMeshOffset = FVector::ZeroVector;
+	FTimerHandle AttemptResetToNavMeshTimerHandle;
 };

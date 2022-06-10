@@ -9,12 +9,16 @@
 class USkeletalMeshComponentBudgeted;
 class UCurveFloat;
 
+class UDungeonCharacterDescription;
+
 UCLASS(Blueprintable)
 class ADungeonCharacter : public ACoreCharacter
 {
 	GENERATED_UCLASS_BODY()
 
 //~ Begin AActor Interface
+protected:
+	virtual void BeginPlay() override;
 public:
 	virtual void PreRegisterAllComponents() override;
 //~ End AActor Interface
@@ -26,6 +30,8 @@ public:
 
 public:
 	int32 GetCoinValue() const;
+
+	void NotifyCharacterUnableToPath();
 
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = Mesh)
@@ -42,4 +48,15 @@ protected:
 	//Curve applied specially to this character based on wave.
 	UPROPERTY(EditDefaultsOnly, Category = Dungeon)
 	UCurveFloat* BaseCoinValueWaveScale = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category = Dungeon)
+	TSubclassOf<UDungeonCharacterDescription> CharacterDescription = nullptr;
+
+public:
+	UFUNCTION(BlueprintCallable, Category = Dungeon)
+	static TSubclassOf<UDungeonCharacterDescription> GetCharacterDescriptor(TSubclassOf<ADungeonCharacter> DungeonCharacterClass);
+
+protected:
+	UPROPERTY(Transient)
+	FVector SpawnLocation = FAISystem::InvalidLocation;
 };

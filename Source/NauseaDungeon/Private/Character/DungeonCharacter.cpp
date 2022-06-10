@@ -76,6 +76,16 @@ ADungeonCharacter::ADungeonCharacter(const FObjectInitializer& ObjectInitializer
 	}
 }
 
+void ADungeonCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SpawnLocation = GetActorLocation();
+	}
+}
+
 void ADungeonCharacter::PreRegisterAllComponents()
 {
 	Super::PreRegisterAllComponents();
@@ -167,4 +177,19 @@ int32 ADungeonCharacter::GetCoinValue() const
 	}
 
 	return BaseCoinValue;
+}
+
+void ADungeonCharacter::NotifyCharacterUnableToPath()
+{
+	TeleportTo(SpawnLocation, GetActorRotation());
+}
+
+TSubclassOf<UDungeonCharacterDescription> ADungeonCharacter::GetCharacterDescriptor(TSubclassOf<ADungeonCharacter> DungeonCharacterClass)
+{
+	if (!DungeonCharacterClass)
+	{
+		return nullptr;
+	}
+
+	return DungeonCharacterClass.GetDefaultObject()->CharacterDescription;
 }
