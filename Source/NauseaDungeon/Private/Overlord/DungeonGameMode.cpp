@@ -26,11 +26,6 @@ void ADungeonGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 		return;
 	}
 
-	if (ADungeonCharacter* DungeonCharacter = Cast<ADungeonCharacter>(PlayerPawn))
-	{
-		AddPawnToWaveCharacters(DungeonCharacter);
-	}
-
 	if (!PlayerPawn->OnDestroyed.IsAlreadyBound(this, &ADungeonGameMode::OnPawnDestroyed))
 	{
 		PlayerPawn->OnDestroyed.AddDynamic(this, &ADungeonGameMode::OnPawnDestroyed);
@@ -48,23 +43,27 @@ void ADungeonGameMode::HandleMatchHasStarted()
 {
 	Super::HandleMatchHasStarted();
 
-	if (ADungeonLevelScriptActor* DungeonLevelScriptActor = Cast<ADungeonLevelScriptActor>(GetWorld()->GetLevelScriptActor()))
+	ADungeonGameState* DungeonGameState = GetGameState<ADungeonGameState>();
+	ensure(DungeonGameState);
+
+	UDungeonWaveSetup* WaveSetup = DungeonGameState->GetWaveSetup();
+	ensure(WaveSetup);
+	WaveSetup->OnWaveCompleted.AddDynamic(this, &ADungeonGameMode::OnWaveCompleted);
+
+	const int64 WaveNumber = DungeonGameState->IncrementWaveNumber();
+	const int64 WaveSize = WaveSetup->InitializeWaveSetup(WaveNumber);
+	WaveSetup->StartWave(WaveNumber);
+	DungeonGameState->SetWaveTotalSpawnCount(WaveSize);
+}
+
+void ADungeonGameMode::AddPawnToWaveCharacters(ADungeonCharacter* Character)
+{
+	if (!Character)
 	{
-		if (UDungeonWaveSetup* WaveSetup = DungeonLevelScriptActor->GenerateDungeonWaveSettings())
-		{
-			ensure(!CurrentWaveSetup);
-			CurrentWaveSetup = WaveSetup;
-			CurrentWaveSetup->OnWaveCompleted.AddDynamic(this, &ADungeonGameMode::OnWaveCompleted);
-
-			ADungeonGameState* DungeonGameState = GetGameState<ADungeonGameState>();
-			ensure(DungeonGameState);
-			
-			int64 WaveNumber = DungeonGameState->IncrementWaveNumber();
-
-			WaveSetup->InitializeWaveSetup(WaveNumber);
-			WaveSetup->StartWave(WaveNumber);
-		}
+		return;
 	}
+
+	WaveCharacters.Add(Character);
 }
 
 void ADungeonGameMode::OnPawnDestroyed(AActor* DestroyedActor)
@@ -117,11 +116,10 @@ void ADungeonGameMode::GrantCoinsForKill(ADungeonCharacter* KilledCharacter, ACo
 	int32 CoinValue = KilledCharacter->GetCoinValue();
 	ProcessCoinAmountForKill.Broadcast(KilledCharacter, EventInstigator, DamageCauser, CoinValue);
 	DungeonPlayerState->AddTrapCoins(CoinValue);
-}
-
-void ADungeonGameMode::AddPawnToWaveCharacters(ADungeonCharacter* Character)
-{
-	WaveCharacters.Add(Character);
+	
+	ADungeonGameState* DungeonGameState = GetGameState<ADungeonGameState>();
+	ensure(DungeonGameState);
+	DungeonGameState->SetWaveRemainingSpawnCount(DungeonGameState->GetWaveRemainingSpawnCount() - 1);
 }
 
 void ADungeonGameMode::RemovePawnFromWaveCharacters(ADungeonCharacter* Character)
@@ -138,9 +136,11 @@ void ADungeonGameMode::RemovePawnFromWaveCharacters(ADungeonCharacter* Character
 		return;
 	}
 
-	if (CurrentWaveSetup)
+	ADungeonGameState* DungeonGameState = GetGameState<ADungeonGameState>();
+	ensure(DungeonGameState);
+	if (UDungeonWaveSetup* WaveSetup = DungeonGameState->GetWaveSetup())
 	{
-		CurrentWaveSetup->OnWaveCharacterListEmpty();
+		WaveSetup->OnWaveCharacterListEmpty();
 	}
 }
 
@@ -150,35 +150,58 @@ void ADungeonGameMode::OnWaveCompleted(UDungeonWaveSetup* WaveSetup, int64 WaveN
 	{
 		return;
 	}
+	
+	ADungeonGameState* DungeonGameState = GetGameState<ADungeonGameState>();
+	ensure(DungeonGameState);
 
-	TArray<UWaveConfiguration*> WaveConfigurationList = WaveSetup->GetWaveConfiguration(WaveNumber + 1);
+	UDungeonWaveSetup* CurrentWaveSetup = DungeonGameState->GetWaveSetup();
+
+	if (WaveSetup != CurrentWaveSetup)
+	{
+		return;
+	}
+	
+	TArray<UWaveConfiguration*> WaveConfigurationList = CurrentWaveSetup->GetWaveConfiguration(WaveNumber + 1);
 	if (!WaveSetup->IsWaveAutoStart(WaveConfigurationList))
 	{
 		return;
 	}
 
-	TWeakObjectPtr<ADungeonGameMode> WeakThis(this);
-	int32 WaveAutoStartTime = WaveSetup->GetWaveAutoStartTime(WaveConfigurationList);
-	GetWorld()->GetTimerManager().SetTimer(AutoStartWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, [WeakThis]()
-	{
-		if (!WeakThis.IsValid())
-		{
-			return;
-		}
-
-		WeakThis->StartNextWave();
-	}), WaveAutoStartTime, false);
+	const int32 WaveAutoStartTime = WaveSetup->GetWaveAutoStartTime(WaveConfigurationList);
+	PerformAutoStart(WaveAutoStartTime);
 }
 
 void ADungeonGameMode::StartNextWave()
 {
-	ensure(CurrentWaveSetup);
-
 	ADungeonGameState* DungeonGameState = GetGameState<ADungeonGameState>();
 	ensure(DungeonGameState);
 
-	int64 WaveNumber = DungeonGameState->IncrementWaveNumber();
+	UDungeonWaveSetup* WaveSetup = DungeonGameState->GetWaveSetup();
+	ensure(WaveSetup);
+
+	const int64 WaveNumber = DungeonGameState->IncrementWaveNumber();
 	
-	CurrentWaveSetup->InitializeWaveSetup(WaveNumber);
-	CurrentWaveSetup->StartWave(WaveNumber);
+	const int64 WaveSize = WaveSetup->InitializeWaveSetup(WaveNumber);
+	DungeonGameState->SetWaveTotalSpawnCount(WaveSize);
+
+	WaveSetup->StartWave(WaveNumber);
+}
+
+void ADungeonGameMode::PerformAutoStart(int32 AutoStartTime)
+{
+	ADungeonGameState* DungeonGameState = GetGameState<ADungeonGameState>();
+	ensure(DungeonGameState);
+
+	TWeakObjectPtr<ADungeonGameMode> WeakThis(this);
+	GetWorld()->GetTimerManager().SetTimer(AutoStartWaveTimerHandle, FTimerDelegate::CreateWeakLambda(this, [WeakThis]()
+		{
+			if (!WeakThis.IsValid())
+			{
+				return;
+			}
+
+			WeakThis->StartNextWave();
+		}), AutoStartTime, false);
+
+	DungeonGameState->SetAutoStartTime(AutoStartTime);
 }

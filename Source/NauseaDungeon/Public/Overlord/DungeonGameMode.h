@@ -27,6 +27,10 @@ protected:
 //~ Begin AGameMode Interface
 
 public:
+	UFUNCTION()
+	void AddPawnToWaveCharacters(ADungeonCharacter* Character);
+
+public:
 	//ADungeonCharacter* KilledCharacter, AController* EventInstigator, AActor* DamageCauser, int32& CoinAmount
 	DECLARE_EVENT_FourParams(ADungeonGameMode, FProcessCoinAmountForKillEvent, ADungeonCharacter*, AController*, AActor*, int32&)
 	FProcessCoinAmountForKillEvent ProcessCoinAmountForKill;
@@ -42,23 +46,19 @@ protected:
 	void GrantCoinsForKill(ADungeonCharacter* KilledCharacter, AController* EventInstigator, AActor* DamageCauser);
 
 	UFUNCTION()
-	void AddPawnToWaveCharacters(ADungeonCharacter* Character);
-	UFUNCTION()
 	void RemovePawnFromWaveCharacters(ADungeonCharacter* Character);
 
 	UFUNCTION()
 	void OnWaveCompleted(UDungeonWaveSetup* WaveSetup, int64 WaveNumber);
 	UFUNCTION()
 	void StartNextWave();
+	UFUNCTION()
+	void PerformAutoStart(int32 AutoStartTime);
 
 protected:
 	//Dump wave characters we've spawned into this list (removed on destroyed/killed) so that we know when there are no characters spawned.
 	UPROPERTY(Transient)
 	TSet<TWeakObjectPtr<ADungeonCharacter>> WaveCharacters;
-
-	//Cache our wave config list for the current wave number here.
-	UPROPERTY(Transient)
-	UDungeonWaveSetup* CurrentWaveSetup = nullptr;
 	UPROPERTY(Transient)
 	FTimerHandle AutoStartWaveTimerHandle;
 };

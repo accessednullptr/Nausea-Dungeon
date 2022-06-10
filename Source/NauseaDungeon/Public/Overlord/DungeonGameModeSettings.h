@@ -8,6 +8,8 @@
 #include "System/SpawnCharacterSystem.h"
 #include "DungeonGameModeSettings.generated.h"
 
+class ADungeonCharacter;
+
 UCLASS()
 class NAUSEADUNGEON_API UDungeonGameModeSettings : public UCoreGameModeSettings
 {
@@ -62,10 +64,12 @@ public:
 	TArray<UWaveConfiguration*> GetWaveConfiguration(int64 WaveNumber) const;
 
 	UFUNCTION(BlueprintCallable, Category = WaveSetup)
-	bool InitializeWaveSetup(int64 WaveNumber);
+	int64 InitializeWaveSetup(int64 WaveNumber);
 	UFUNCTION(BlueprintCallable, Category = WaveSetup)
 	bool StartWave(int64 WaveNumber);
 
+	UFUNCTION(BlueprintCallable, Category = WaveSetup)
+	void GetCharacterClassListForWave(int64 WaveNumber, TArray<TSubclassOf<ADungeonCharacter>>& DungeonCharacterClassList) const;
 
 	UFUNCTION()
 	void OnWaveCharacterListEmpty();
@@ -82,6 +86,9 @@ public:
 	UCurveFloat* GetDefaultWaveSizeScaling() const { return DefaultWaveSizeScaling; }
 	UFUNCTION(BlueprintCallable, Category = WaveSetup)
 	UCurveFloat* GetDefaultWaveRateScaling() const { return DefaultWaveRateScaling; }
+
+	UFUNCTION(BlueprintCallable, Category = WaveSetup)
+	int64 GetExpectedSpawnCount() const { return TotalExpectedSpawnCount; }
 
 	UFUNCTION(BlueprintCallable, Category = WaveSetup, meta = (WorldContext = "WorldContextObject", CallableWithoutWorldContext, AdvancedDisplay = 3))
 	static UDungeonWaveSetup* CreateWaveSetup(UObject* WorldContextObject, TSubclassOf<UDungeonWaveSetup> SetupClass, const TArray<FWaveModifierEntry>& AdditionalModifiers, bool bClearSetupClassModifiers = false,
@@ -113,6 +120,8 @@ protected:
 
 	UPROPERTY(Transient)
 	int64 InitializedWave = -1;
+	UPROPERTY(Transient)
+	int64 TotalExpectedSpawnCount = -1;
 };
 
 UCLASS(BlueprintType, Blueprintable, EditInlineNew, DefaultToInstanced, AutoExpandCategories = (Configuration))
@@ -142,6 +151,14 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Configuration)
 	int32 GetSpawnCount(int64 WaveNumber, UDungeonWaveSetup* Setup = nullptr) const;
+	UFUNCTION(BlueprintCallable, Category = Configuration)
+	int32 GetTimeOffset(int64 WaveNumber, UDungeonWaveSetup* Setup = nullptr) const;
+	UFUNCTION(BlueprintCallable, Category = Configuration)
+	int32 GetTimeInterval(int64 WaveNumber, UDungeonWaveSetup* Setup = nullptr) const;
+	UFUNCTION(BlueprintCallable, Category = Configuration)
+	int32 GetSpawnBatchAmount(int64 WaveNumber, UDungeonWaveSetup* Setup = nullptr) const;
+
+	void AppendCharacterClassListForWave(int64 WaveNumber, TArray<TSubclassOf<ADungeonCharacter>>& DungeonCharacterClassList) const;
 
 	UFUNCTION(BlueprintCallable, Category = Configuration)
 	bool IsAutoStartWave() const { return bIsAutoStartWave; }
@@ -291,8 +308,6 @@ protected:
 	EWaveModifierType ModifierType = EWaveModifierType::Additive;
 };
 
-class ADungeonCharacter;
-
 USTRUCT(BlueprintType, Blueprintable)
 struct FSpawnGroupEntry
 {
@@ -307,13 +322,15 @@ public:
 	TSubclassOf<ADungeonCharacter> GetNextSpawnClass();
 	bool RefundSpawnClass(TSubclassOf<ADungeonCharacter> CharacterClass);
 
+	TSubclassOf<ADungeonCharacter> GetClass() const;
+
 protected:
 	UPROPERTY(EditAnywhere, Category = SpawnGroup)
 	TSoftClassPtr<ADungeonCharacter> Character = nullptr;
 	UPROPERTY(EditAnywhere, Category = SpawnGroup)
 	uint8 SpawnCount = 4;
 	UPROPERTY(Transient)
-	TSubclassOf<ADungeonCharacter> LoadedCharacter = nullptr;
+	mutable TSubclassOf<ADungeonCharacter> LoadedCharacter = nullptr;
 	UPROPERTY(Transient)
 	uint8 RemainingToSpawn = 0;
 };
@@ -325,6 +342,8 @@ class NAUSEADUNGEON_API UWaveSpawnGroup : public UObject
 
 public:
 	void Initialize();
+
+	void AppendCharacterClassListForWave(int64 WaveNumber, TArray<TSubclassOf<ADungeonCharacter>>& DungeonCharacterClassList) const;
 
 	bool HasRemainingSpawns() const;
 	TSubclassOf<ADungeonCharacter> GetNextSpawnClass();

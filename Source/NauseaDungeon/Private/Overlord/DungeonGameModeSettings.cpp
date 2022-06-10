@@ -3,7 +3,7 @@
 
 #include "Overlord/DungeonGameModeSettings.h"
 #include "System/CoreSingleton.h"
-#include "System/CoreGameMode.h"
+#include "Overlord/DungeonGameMode.h"
 #include "Character/DungeonCharacter.h"
 
 UDungeonGameModeSettings::UDungeonGameModeSettings(const FObjectInitializer& ObjectInitializer)
@@ -79,22 +79,23 @@ TArray<UWaveConfiguration*> UDungeonWaveSetup::GetWaveConfiguration(int64 WaveNu
 	return Result;
 }
 
-bool UDungeonWaveSetup::InitializeWaveSetup(int64 WaveNumber)
+int64 UDungeonWaveSetup::InitializeWaveSetup(int64 WaveNumber)
 {
+	TotalExpectedSpawnCount = 0;
 	TArray<UWaveConfiguration*> WaveConfiguration = GetWaveConfiguration(WaveNumber);
 
 	if (WaveConfiguration.Num() == 0)
 	{
-		return false;
+		return -1;
 	}
 
 	for (UWaveConfiguration* Wave : WaveConfiguration)
 	{
-		Wave->InitializeForWave(WaveNumber, this);
+		TotalExpectedSpawnCount += Wave->InitializeForWave(WaveNumber, this);
 	}
 
 	InitializedWave = WaveNumber;
-	return true;
+	return TotalExpectedSpawnCount;
 }
 
 bool UDungeonWaveSetup::StartWave(int64 WaveNumber)
@@ -117,6 +118,21 @@ bool UDungeonWaveSetup::StartWave(int64 WaveNumber)
 	}
 
 	return true;
+}
+
+void UDungeonWaveSetup::GetCharacterClassListForWave(int64 WaveNumber, TArray<TSubclassOf<ADungeonCharacter>>& DungeonCharacterClassList) const
+{
+	TArray<UWaveConfiguration*> WaveConfiguration = GetWaveConfiguration(WaveNumber);
+
+	for (UWaveConfiguration* Configuration : WaveConfiguration)
+	{
+		if (!Configuration)
+		{
+			continue;
+		}
+
+		Configuration->AppendCharacterClassListForWave(WaveNumber, DungeonCharacterClassList);
+	}
 }
 
 void UDungeonWaveSetup::OnWaveCharacterListEmpty()
@@ -249,42 +265,13 @@ int32 UWaveConfiguration::InitializeForWave(int64 WaveNumber, UDungeonWaveSetup*
 {
 	CleanUp();
 	InitializedWaveNumber = WaveNumber;
-	TotalSpawnCount = GetSpawnCount(WaveNumber, Setup);
 	NumberSpawned = 0;
 	RequestedSpawnCount = 0;
 
-	CurrentSpawnTimeOffset = SpawnTimeOffset;
-	if (SpawnTimeOffsetWaveCurve)
-	{
-		CurrentSpawnTimeOffset = FMath::CeilToInt(float(CurrentSpawnTimeOffset) * SpawnTimeOffsetWaveCurve->GetFloatValue(WaveNumber));
-
-		if (!bIgnoreSettingsWaveSpawnRateCurveForTimeOffset && Setup && Setup->GetDefaultWaveRateScaling())
-		{
-			CurrentSpawnTimeOffset = FMath::CeilToInt(float(CurrentSpawnTimeOffset) * Setup->GetDefaultWaveRateScaling()->GetFloatValue(WaveNumber));
-		}
-	}
-
-	CurrentSpawnInterval = SpawnIntervalTime;
-	if (SpawnIntervalTimeWaveCurve)
-	{
-		CurrentSpawnInterval = FMath::CeilToInt(float(CurrentSpawnInterval) * SpawnIntervalTimeWaveCurve->GetFloatValue(WaveNumber));
-
-		if (!bIgnoreSettingsWaveSpawnRateCurveForTimeInterval && Setup && Setup->GetDefaultWaveRateScaling())
-		{
-			CurrentSpawnInterval = FMath::CeilToInt(float(CurrentSpawnInterval) * Setup->GetDefaultWaveRateScaling()->GetFloatValue(WaveNumber));
-		}
-	}
-
-	CurrentSpawnBatchAmount = SpawnBatchAmount;
-	if (SpawnBatchAmountWaveCurve)
-	{
-		CurrentSpawnBatchAmount = FMath::CeilToInt(float(CurrentSpawnBatchAmount) * SpawnBatchAmountWaveCurve->GetFloatValue(WaveNumber));
-
-		if (!bIgnoreSettingsWaveSpawnSizeCurveForSpawnBatchAmount && Setup && Setup->GetDefaultWaveSizeScaling())
-		{
-			CurrentSpawnBatchAmount = FMath::CeilToInt(float(CurrentSpawnBatchAmount) * Setup->GetDefaultWaveSizeScaling()->GetFloatValue(WaveNumber));
-		}
-	}
+	TotalSpawnCount = GetSpawnCount(WaveNumber, Setup);
+	CurrentSpawnTimeOffset = GetTimeOffset(WaveNumber, Setup);
+	CurrentSpawnInterval = GetTimeInterval(WaveNumber, Setup);
+	CurrentSpawnBatchAmount = GetSpawnBatchAmount(WaveNumber, Setup);
 
 	for (UWaveSpawnGroup* Group : SpawnWaveGroups)
 	{
@@ -364,8 +351,43 @@ bool UWaveConfiguration::IsSpawnIntervalTimerActive() const
 int32 UWaveConfiguration::GetSpawnCount(int64 WaveNumber, UDungeonWaveSetup* Setup) const
 {
 	const float LocalScaling = WaveSizeScalingCurve ? WaveSizeScalingCurve->GetFloatValue(WaveNumber) : 1.f;
-	const float SettingsScaling = (!bIgnoreSettingsWaveSizeScalingCurve && Setup && Setup->GetDefaultWaveSizeScaling()) ? Setup->GetDefaultWaveSizeScaling()->GetFloatValue(WaveNumber) : 1.f;
-	return FMath::CeilToInt(float(BaseSpawnCount) * LocalScaling * SettingsScaling);
+	const float SetupScaling = (!bIgnoreSettingsWaveSizeScalingCurve && Setup && Setup->GetDefaultWaveSizeScaling()) ? Setup->GetDefaultWaveSizeScaling()->GetFloatValue(WaveNumber) : 1.f;
+	return FMath::CeilToInt(float(BaseSpawnCount) * LocalScaling * SetupScaling);
+}
+
+int32 UWaveConfiguration::GetTimeOffset(int64 WaveNumber, UDungeonWaveSetup* Setup) const
+{
+	const float LocalScaling = SpawnTimeOffsetWaveCurve ? SpawnTimeOffsetWaveCurve->GetFloatValue(WaveNumber) : 1.f;
+	const float SetupScaling = (!bIgnoreSettingsWaveSpawnRateCurveForTimeOffset && Setup && Setup->GetDefaultWaveRateScaling()) ? Setup->GetDefaultWaveRateScaling()->GetFloatValue(WaveNumber) : 1.f;
+	return FMath::CeilToInt(float(SpawnTimeOffset) * LocalScaling * SetupScaling);
+}
+
+int32 UWaveConfiguration::GetTimeInterval(int64 WaveNumber, UDungeonWaveSetup* Setup) const
+{
+	const float LocalScaling = SpawnIntervalTimeWaveCurve ? SpawnIntervalTimeWaveCurve->GetFloatValue(WaveNumber) : 1.f;
+	const float SetupScaling = (!bIgnoreSettingsWaveSpawnRateCurveForTimeInterval && Setup && Setup->GetDefaultWaveRateScaling()) ? Setup->GetDefaultWaveRateScaling()->GetFloatValue(WaveNumber) : 1.f;
+	return FMath::CeilToInt(float(SpawnIntervalTime) * LocalScaling * SetupScaling);
+}
+
+int32 UWaveConfiguration::GetSpawnBatchAmount(int64 WaveNumber, UDungeonWaveSetup* Setup) const
+{
+	const float LocalScaling = SpawnBatchAmountWaveCurve ? SpawnBatchAmountWaveCurve->GetFloatValue(WaveNumber) : 1.f;
+	const float SetupScaling = (!bIgnoreSettingsWaveSpawnSizeCurveForSpawnBatchAmount && Setup && Setup->GetDefaultWaveSizeScaling()) ? Setup->GetDefaultWaveSizeScaling()->GetFloatValue(WaveNumber) : 1.f;
+	return FMath::CeilToInt(float(SpawnBatchAmount) * LocalScaling * SetupScaling);
+}
+
+void UWaveConfiguration::AppendCharacterClassListForWave(int64 WaveNumber, TArray<TSubclassOf<ADungeonCharacter>>& DungeonCharacterClassList) const
+{
+	DungeonCharacterClassList.Reserve(DungeonCharacterClassList.Num() + SpawnWaveGroups.Num());
+	for (const UWaveSpawnGroup* Group : SpawnWaveGroups)
+	{
+		if (!Group)
+		{
+			continue;
+		}
+
+		Group->AppendCharacterClassListForWave(WaveNumber, DungeonCharacterClassList);
+	}
 }
 
 UWaveConfiguration* UWaveConfiguration::CreateWaveConfiguration(UObject* WorldContextObject, TSubclassOf<UWaveConfiguration> WaveClass, FGameplayTagContainer AdditionalSpawnerTags,
@@ -447,7 +469,7 @@ void UWaveConfiguration::SetNextSpawnInterval()
 		WeakThis->GetWorld()->GetTimerManager().ClearTimer(WeakThis->NextSpawnIntervalTimerHandle);
 		WeakThis->PerformSpawn();
 
-	}), CurrentSpawnInterval, false);
+	}), FMath::Max(float(CurrentSpawnInterval), 0.1f), false);
 }
 
 int32 UWaveConfiguration::PerformSpawn()
@@ -524,8 +546,9 @@ void UWaveConfiguration::OnSpawnRequestResult(const FSpawnRequest& Request, ACor
 		return;
 	}
 
-	if (ACoreGameMode* GameMode = GetWorld()->GetAuthGameMode<ACoreGameMode>())
+	if (ADungeonGameMode* GameMode = GetWorld()->GetAuthGameMode<ADungeonGameMode>())
 	{
+		GameMode->AddPawnToWaveCharacters(Cast<ADungeonCharacter>(Character));
 		GameMode->SetPlayerDefaults(Character);
 	}
 
@@ -726,6 +749,17 @@ bool FSpawnGroupEntry::RefundSpawnClass(TSubclassOf<ADungeonCharacter> Character
 	return true;
 }
 
+TSubclassOf<ADungeonCharacter> FSpawnGroupEntry::GetClass() const
+{
+	if (LoadedCharacter)
+	{
+		return LoadedCharacter;
+	}
+
+	LoadedCharacter = Character.LoadSynchronous();
+	return LoadedCharacter;
+}
+
 UWaveSpawnGroup::UWaveSpawnGroup(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -737,6 +771,15 @@ void UWaveSpawnGroup::Initialize()
 	for (FSpawnGroupEntry& Entry : SpawnList)
 	{
 		Entry.Initialize();
+	}
+}
+
+void UWaveSpawnGroup::AppendCharacterClassListForWave(int64 WaveNumber, TArray<TSubclassOf<ADungeonCharacter>>& DungeonCharacterClassList) const
+{
+	DungeonCharacterClassList.Reserve(DungeonCharacterClassList.Num() + SpawnList.Num());
+	for (const FSpawnGroupEntry& Entry : SpawnList)
+	{
+		DungeonCharacterClassList.Add(Entry.GetClass());
 	}
 }
 
