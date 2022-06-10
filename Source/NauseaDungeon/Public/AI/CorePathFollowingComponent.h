@@ -35,7 +35,22 @@ public:
 	virtual void OnPathFinished(const FPathFollowingResult& Result) override;
 //~ End UPathFollowingComponent Interface
 
+public:
+	bool RequestIgnoredByCrowdManager(TObjectKey<UObject> Requester);
+	bool RevokeIgnoredByCrowdManager(TObjectKey<UObject> Requester);
+
+	bool RequestPerformPanicMovement(TObjectKey<UObject> Requester);
+	bool RevokePerformPanicMovement(TObjectKey<UObject> Requester);
+
 protected:
+	UFUNCTION()
+	void UpdateIgnoredByCrowdManager();
+	UFUNCTION()
+	void UpdatePerformPanicMovement();
+
+protected:
+	ECrowdSimulationState DefaultCrowdSimulationState = ECrowdSimulationState::Disabled;
+
 	UPROPERTY(EditDefaultsOnly, Category = PathFollowing)
 	float JumpCooldown = 0.25f;
 	UPROPERTY(Transient)
@@ -45,4 +60,12 @@ protected:
 	UCoreCharacterMovementComponent* CoreCharacterMovementComponent = nullptr;
 	UPROPERTY(Transient)
 	UCoreAIPerceptionComponent* CoreAIPerceptionComponent = nullptr;
+
+	TSet<TObjectKey<UObject>> IgnoredByCrowdManagerRequestList;
+	UPROPERTY(Transient)
+	bool bIgnoredByCrowdManager = false;
+
+	TSet<TObjectKey<UObject>> PerformPanicMovementRequestList;
+	UPROPERTY(Transient)
+	bool bPerformPanicMovement = false;
 };
