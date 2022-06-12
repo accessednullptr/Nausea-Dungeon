@@ -6,6 +6,7 @@
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "Engine/World.h"
 #include "NauseaGlobalDefines.h"
+#include "Overlord/DungeonGameState.h"
 #include "Player/DungeonPlayerState.h"
 #include "Character/DungeonCharacter.h"
 #include "Overlord/PlacementActor.h"
@@ -24,36 +25,18 @@ ADungeonPlayerController::ADungeonPlayerController(const FObjectInitializer& Obj
 	DefaultMouseCursor = EMouseCursor::Crosshairs;
 }
 
-void ADungeonPlayerController::SetPlacementTrapClass(TSubclassOf<ATrapBase> TrapClass)
+void ADungeonPlayerController::BeginPlay()
 {
-	PlacementTrapClass = TrapClass;
+	Super::BeginPlay();
 
-	if (const ATrapBase* TrapCDO = GetPlacementTrapCDO())
+	ADungeonGameState* DungeonGameState = GetWorld()->GetGameState<ADungeonGameState>();
+	ensure(DungeonGameState);
+
+	if (DungeonGameState)
 	{
-		PlacementTrapPreviewClass = TrapCDO->GetPlacementPreviewActor().LoadSynchronous();
+		DungeonGameState->OnMatchStateChanged.AddDynamic(this, &ADungeonPlayerController::OnMatchStateChanged);
+		OnMatchStateChanged(DungeonGameState, DungeonGameState->GetMatchState());
 	}
-	else
-	{
-		PlacementTrapPreviewClass = nullptr;
-	}
-	
-	if (TrapPreviewActor && !TrapPreviewActor->IsPendingKillPending() && (TrapPreviewActor->GetClass() != PlacementTrapPreviewClass))
-	{
-		TrapPreviewActor->Destroy();
-		TrapPreviewActor = nullptr;
-	}
-
-	OnSelectedTrapClassUpdate.Broadcast(this, PlacementTrapClass);
-}
-
-void ADungeonPlayerController::ClearPlacementTrapClass()
-{
-	SetPlacementTrapClass(nullptr);
-}
-
-const ATrapBase* ADungeonPlayerController::GetPlacementTrapCDO() const
-{
-	return PlacementTrapClass.GetDefaultObject();
 }
 
 static bool bTestPlacement = false;
@@ -61,7 +44,12 @@ static FHitResult TestHitResult;
 void ADungeonPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
-	
+
+	if (!bPlacementEnabled)
+	{
+		return;
+	}
+
 	bTestPlacement = CVarPlacementTestMode.GetValueOnGameThread() != 0;
 
 	FHitResult HitResult;
@@ -92,6 +80,63 @@ void ADungeonPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Build", IE_Pressed, this, &ADungeonPlayerController::OnBuildPressed);
 	InputComponent->BindAction("RotatePlacement", IE_Pressed, this, &ADungeonPlayerController::OnRotatePlacement);
 	InputComponent->BindAction("CancelBuild", IE_Pressed, this, &ADungeonPlayerController::OnCancelBuildPressed);
+}
+
+void ADungeonPlayerController::SetPlacementTrapClass(TSubclassOf<ATrapBase> TrapClass)
+{
+	if (!bPlacementEnabled)
+	{
+		return;
+	}
+
+	PlacementTrapClass = TrapClass;
+
+	if (const ATrapBase* TrapCDO = GetPlacementTrapCDO())
+	{
+		PlacementTrapPreviewClass = TrapCDO->GetPlacementPreviewActor().LoadSynchronous();
+	}
+	else
+	{
+		PlacementTrapPreviewClass = nullptr;
+	}
+	
+	if (TrapPreviewActor && !TrapPreviewActor->IsPendingKillPending() && (TrapPreviewActor->GetClass() != PlacementTrapPreviewClass))
+	{
+		TrapPreviewActor->Destroy();
+		TrapPreviewActor = nullptr;
+	}
+
+	OnSelectedTrapClassUpdate.Broadcast(this, PlacementTrapClass);
+}
+
+void ADungeonPlayerController::ClearPlacementTrapClass()
+{
+	SetPlacementTrapClass(nullptr);
+}
+
+const ATrapBase* ADungeonPlayerController::GetPlacementTrapCDO() const
+{
+	return PlacementTrapClass.GetDefaultObject();
+}
+
+void ADungeonPlayerController::SetPlacementEnabled(bool bEnabled)
+{
+	if (bPlacementEnabled == bEnabled)
+	{
+		return;
+	}
+
+	bPlacementEnabled = bEnabled;
+
+	if (!bPlacementEnabled)
+	{
+		ClearPlacementTrapClass();
+	}
+}
+
+void ADungeonPlayerController::OnMatchStateChanged(ACoreGameState* GameState, FName MatchState)
+{
+	SetPlacementEnabled(GameState->IsInProgress());
 }
 
 bool ADungeonPlayerController::UpdatePlacement(const FHitResult& HitResult, FTransform& PlacementTransform)
@@ -166,12 +211,17 @@ void ADungeonPlayerController::UpdatePreviewActor(bool bActive, const FTransform
 			return;
 		}
 
-		TrapPreviewActor = GetWorld()->SpawnActor<ATrapPreview>(PreviewActorClass, PlacementTransform, FActorSpawnParameters());
+		FActorSpawnParameters ASP = FActorSpawnParameters();
+		ASP.bDeferConstruction = true;
+		TrapPreviewActor = GetWorld()->SpawnActor<ATrapPreview>(PreviewActorClass, PlacementTransform, ASP);
 
 		if (!TrapPreviewActor)
 		{
 			return;
 		}
+
+		TrapPreviewActor->SetPlacementFlags(PlacementTrapCDO->GetPlacementType());
+		TrapPreviewActor->FinishSpawning(PlacementTransform);
 	}
 	
 	EPlacementResult Result = bActive ? PlacementTrapCDO->CanPlaceTrapOnTarget(this, PlacementActor) : EPlacementResult::InvalidLocation;

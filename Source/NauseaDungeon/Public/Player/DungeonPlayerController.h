@@ -9,6 +9,7 @@
 class ATrapBase;
 class ATrapPreview;
 class APlacementActor;
+class ACoreGameState;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FSelectedTrapClassUpdateSignature, ADungeonPlayerController*, PlayerController, TSubclassOf<ATrapBase>, TrapClass);
 
@@ -16,6 +17,17 @@ UCLASS()
 class ADungeonPlayerController : public ACorePlayerController
 {
 	GENERATED_UCLASS_BODY()
+	
+//~ Begin AActor Interface
+protected:
+	virtual void BeginPlay() override;
+//~ End AActor Interface
+
+//~ Begin APlayerController Interface
+public:
+	virtual void PlayerTick(float DeltaTime) override;
+	virtual void SetupInputComponent() override;
+//~ End APlayerController Interface
 
 public:
 	UFUNCTION(BlueprintCallable, Category = Placement)
@@ -28,14 +40,11 @@ public:
 
 	const ATrapBase* GetPlacementTrapCDO() const;
 
-protected:
-	/** True if the controlled character should navigate to the mouse cursor. */
-	uint32 bMoveToMouseCursor : 1;
+	void SetPlacementEnabled(bool bEnabled);
 
-	// Begin PlayerController interface
-	virtual void PlayerTick(float DeltaTime) override;
-	virtual void SetupInputComponent() override;
-	// End PlayerController interface
+protected:
+	UFUNCTION()
+	void OnMatchStateChanged(ACoreGameState* GameState, FName MatchState);
 
 	bool UpdatePlacement(const FHitResult& HitResult, FTransform& PlacementTransform);
 	void UpdatePreviewActor(bool bActive, const FTransform& PlacementTransform, APlacementActor* PlacementActor);
@@ -62,6 +71,8 @@ protected:
 	TSubclassOf<ATrapPreview> PlacementTrapPreviewClass = nullptr;
 	UPROPERTY(Transient)
 	ATrapPreview* TrapPreviewActor = nullptr;
+	UPROPERTY(Transient)
+	bool bPlacementEnabled = false;
 
 public:
 	UFUNCTION(BlueprintCallable, Category = Input)

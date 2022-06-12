@@ -11,6 +11,12 @@ class UDungeonGameModeSettings;
 class UDungeonWaveSetup;
 class UWaveConfiguration;
 
+namespace MatchState
+{
+	extern NAUSEADUNGEON_API const FName EndVictory;
+	extern NAUSEADUNGEON_API const FName EndLoss;
+}
+
 UCLASS(minimalapi)
 class ADungeonGameMode : public ACoreGameMode
 {
@@ -28,7 +34,17 @@ protected:
 
 public:
 	UFUNCTION()
+	int64 ProcessStartingGameHealth(int64 InStartingGameHealth);
+	UFUNCTION()
+	int32 ProcessStartingTrapCoinAmount(int32 InStartingTrapCoinAmount);
+
+	UFUNCTION()
 	void AddPawnToWaveCharacters(ADungeonCharacter* Character);
+
+	UFUNCTION(BlueprintCallable, Category = GameMode)
+	static void NotifyPawnReachedEndPoint(ADungeonCharacter* Character);
+
+	void InternalPawnReachedEndPoint(ADungeonCharacter* Character);
 
 public:
 	//ADungeonCharacter* KilledCharacter, AController* EventInstigator, AActor* DamageCauser, int32& CoinAmount
@@ -36,6 +52,9 @@ public:
 	FProcessCoinAmountForKillEvent ProcessCoinAmountForKill;
 
 protected:
+	UFUNCTION()
+	void ApplyGameDamage(int64 Amount, UObject* DamageInstigator);
+
 	UFUNCTION()
 	void OnPawnDestroyed(AActor* DestroyedActor);
 
@@ -55,10 +74,16 @@ protected:
 	UFUNCTION()
 	void PerformAutoStart(int32 AutoStartTime);
 
+	UFUNCTION()
+	void OnFinalWaveCompleted();
+
+	UFUNCTION()
+	void GoToEndGameState(bool bVictory);
+
+
 protected:
 	//Dump wave characters we've spawned into this list (removed on destroyed/killed) so that we know when there are no characters spawned.
-	UPROPERTY(Transient)
-	TSet<TWeakObjectPtr<ADungeonCharacter>> WaveCharacters;
+	TSet<TObjectKey<ADungeonCharacter>> WaveCharacters;
 	UPROPERTY(Transient)
 	FTimerHandle AutoStartWaveTimerHandle;
 };

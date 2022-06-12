@@ -3,6 +3,7 @@
 
 #include "Overlord/DungeonGameState.h"
 #include "NauseaNetDefines.h"
+#include "Overlord/DungeonGameMode.h"
 #include "System/CoreWorldSettings.h"
 #include "System/DungeonLevelScriptActor.h"
 #include "Overlord/DungeonGameModeSettings.h"
@@ -19,11 +20,30 @@ void ADungeonGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 
 	DOREPLIFETIME_WITH_PARAMS_FAST(ADungeonGameState, CurrentWaveNumber, PushReplicationParams::Default);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ADungeonGameState, AutoStartTime, PushReplicationParams::Default);
+
+	DOREPLIFETIME_WITH_PARAMS_FAST(ADungeonGameState, WaveTotalSpawnCount, PushReplicationParams::Default);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ADungeonGameState, WaveRemainingSpawnCount, PushReplicationParams::Default);
+
+	DOREPLIFETIME_WITH_PARAMS_FAST(ADungeonGameState, RemainingGameHealth, PushReplicationParams::Default);
 }
 
 void ADungeonGameState::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+}
+
+void ADungeonGameState::OnRep_MatchState()
+{
+	if (MatchState == MatchState::EndVictory)
+	{
+		HandleMatchVictory();
+	}
+	else if (MatchState == MatchState::EndLoss)
+	{
+		HandleMatchLoss();
+	}
+
+	Super::OnRep_MatchState();
 }
 
 void ADungeonGameState::HandleMatchHasStarted()
@@ -34,6 +54,27 @@ void ADungeonGameState::HandleMatchHasStarted()
 void ADungeonGameState::HandleMatchHasEnded()
 {
 	Super::HandleMatchHasEnded();
+}
+
+bool ADungeonGameState::IsInEndGameState() const
+{
+	return MatchState == MatchState::EndVictory || MatchState == MatchState::EndLoss;
+}
+
+
+EMatchEndType ADungeonGameState::GetEndGameStateType() const
+{
+	if(MatchState == MatchState::EndVictory)
+	{
+		return EMatchEndType::Victory;
+	}
+	
+	if (MatchState == MatchState::EndLoss)
+	{
+		return EMatchEndType::Loss;
+	}
+
+	return EMatchEndType::None;
 }
 
 UDungeonWaveSetup* ADungeonGameState::GetWaveSetup() const
@@ -86,6 +127,11 @@ int64 ADungeonGameState::SetWaveTotalSpawnCount(int64 NewWaveTotalSpawnCount)
 
 int64 ADungeonGameState::SetWaveRemainingSpawnCount(int64 NewWaveRemainingSpawnCount)
 {
+	if (NewWaveRemainingSpawnCount == WaveRemainingSpawnCount)
+	{
+		return WaveRemainingSpawnCount;
+	}
+
 	const int64 PreviousWaveRemainingSpawnCount = WaveRemainingSpawnCount;
 	WaveRemainingSpawnCount = NewWaveRemainingSpawnCount;
 	MARK_PROPERTY_DIRTY_FROM_NAME(ADungeonGameState, WaveRemainingSpawnCount, this);
@@ -95,9 +141,52 @@ int64 ADungeonGameState::SetWaveRemainingSpawnCount(int64 NewWaveRemainingSpawnC
 
 void ADungeonGameState::SetAutoStartTime(float InAutoStartTime)
 {
-	AutoStartTime = GetServerWorldTimeSeconds() + InAutoStartTime;
+	const float ProcessedAutoStartTime = InAutoStartTime > 0.f ? GetServerWorldTimeSeconds() + InAutoStartTime : -1.f;
+
+	if (AutoStartTime == ProcessedAutoStartTime)
+	{
+		return;
+	}
+
+	const float PreviousAutoStartTime = AutoStartTime;
+	AutoStartTime = ProcessedAutoStartTime;
 	MARK_PROPERTY_DIRTY_FROM_NAME(ADungeonGameState, AutoStartTime, this);
-	OnRep_AutoStartTime(AutoStartTime);
+	OnRep_AutoStartTime(PreviousAutoStartTime);
+}
+
+int64 ADungeonGameState::SetGameHealth(int64 Amount)
+{
+	if (Amount == RemainingGameHealth)
+	{
+		return Amount;
+	}
+
+	const int64 PreviousRemainingGameHealth = RemainingGameHealth;
+	RemainingGameHealth = Amount;
+	MARK_PROPERTY_DIRTY_FROM_NAME(ADungeonGameState, RemainingGameHealth, this);
+	OnRep_RemainingGameHealth(PreviousRemainingGameHealth);
+	return GetRemainingGameHealth();
+}
+
+int64 ADungeonGameState::DecrementGameHealth(int64 Amount)
+{
+	if (Amount <= 0)
+	{
+		return RemainingGameHealth;
+	}
+
+	SetGameHealth(FMath::Max(static_cast<int64>(0), RemainingGameHealth - Amount));
+	return GetRemainingGameHealth();
+}
+
+void ADungeonGameState::HandleMatchVictory()
+{
+	OnGameVictory.Broadcast(this);
+}
+
+void ADungeonGameState::HandleMatchLoss()
+{
+	OnGameLoss.Broadcast(this);
 }
 
 void ADungeonGameState::UpdateDungeonCharacterClassList()
@@ -133,6 +222,15 @@ void ADungeonGameState::OnRep_WaveRemainingSpawnCount(int64 PreviousWaveRemainin
 
 void ADungeonGameState::OnRep_AutoStartTime(float PreviousAutoStartTime)
 {
+	const bool bValidTime = AutoStartTime > 0.f;
 	const float TimeAdjustment = GetWorld()->GetTimeSeconds() - GetServerWorldTimeSeconds();
-	OnAutoStartTimeUpdate.Broadcast(this, GetWorld()->GetTimeSeconds(), AutoStartTime + TimeAdjustment);
+
+	const float StartTime = bValidTime ? GetWorld()->GetTimeSeconds() : -1.f;
+	const float EndTime = bValidTime ? AutoStartTime + TimeAdjustment : -1.f;
+	OnAutoStartTimeUpdate.Broadcast(this, StartTime, EndTime);
+}
+
+void ADungeonGameState::OnRep_RemainingGameHealth(int64 PreviousRemainingGameHealth)
+{
+	OnRemainingGameHeathUpdate.Broadcast(this, RemainingGameHealth, PreviousRemainingGameHealth);
 }
