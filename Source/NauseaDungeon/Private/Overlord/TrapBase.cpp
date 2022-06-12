@@ -219,6 +219,11 @@ void ATrapPreview::PostInitializeComponents()
 	Super::PostInitializeComponents();
 }
 
+void ATrapPreview::SetPlacementFlags(uint8 InPlacementFlags)
+{
+	CurrentPlacementFlags = InPlacementFlags;
+}
+
 void ATrapPreview::UpdatePlacementState(EPlacementResult PlacementResult, const FTransform& NewPlacementTransform)
 {
 	if (LastKnownPlacementResult == PlacementResult)

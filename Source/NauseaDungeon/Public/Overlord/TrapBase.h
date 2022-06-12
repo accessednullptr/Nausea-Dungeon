@@ -107,12 +107,22 @@ public:
 
 public:
 	UFUNCTION()
+	void SetPlacementFlags(uint8 InPlacementFlags);
+
+	UFUNCTION()
 	void UpdatePlacementState(EPlacementResult PlacementResult, const FTransform& NewPlacementTransform);
 
 	UFUNCTION(BlueprintCallable, Category = TrapPreview)
 	const FText& GetPlacementText() const;
 	UFUNCTION(BlueprintCallable, Category = TrapPreview)
 	const FLinearColor& GetPlacementTextColor() const;
+
+	UFUNCTION(BlueprintCallable, Category = Placement)
+	bool CanBeFloorTrap() const { return (CurrentPlacementFlags & static_cast<uint8>(EPlacementType::Floor)) != 0; }
+	UFUNCTION(BlueprintCallable, Category = Placement)
+	bool CanBeWallTrap() const { return (CurrentPlacementFlags & static_cast<uint8>(EPlacementType::Wall)) != 0; }
+	UFUNCTION(BlueprintCallable, Category = Placement)
+	bool CanBeCeilingTrap() const { return (CurrentPlacementFlags & static_cast<uint8>(EPlacementType::Ceiling)) != 0; }
 
 public:
 	UPROPERTY(BlueprintAssignable, Category = TrapPreview)
@@ -139,6 +149,9 @@ protected:
 	FText NotEnoughFundsPlacementText;
 	UPROPERTY(EditDefaultsOnly, Category = TrapPreview)
 	FLinearColor NotEnoughFundsPlacementColor;
+
+	UPROPERTY(Transient)
+	uint8 CurrentPlacementFlags = 0;
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = UI)
