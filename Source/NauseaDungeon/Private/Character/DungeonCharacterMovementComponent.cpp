@@ -73,15 +73,16 @@ void UDungeonCharacterMovementComponent::PerformMovement(float DeltaTime)
 	const FVector CurrentRelativeLocation = GetCharacterOwner()->GetMesh()->GetRelativeLocation();
 	if (!IsNetMode(NM_DedicatedServer) && !DefaultRelativeLocation.Equals(CurrentRelativeLocation))
 	{
-		const FVector DesiredRelativeLocation = FMath::VInterpTo(CurrentRelativeLocation, DefaultRelativeLocation, DeltaTime, 8.f);
+		const FVector DesiredRelativeLocation = FMath::VInterpTo(CurrentRelativeLocation, DefaultRelativeLocation, DeltaTime, 4.f);
+		const FVector PulledDesiredRelativeLocation = FMath::VInterpConstantTo(DesiredRelativeLocation, DefaultRelativeLocation, DeltaTime, Velocity.Size() * 0.75f);
 
-		if (DesiredRelativeLocation.Equals(DefaultRelativeLocation, 8.f))
+		if (PulledDesiredRelativeLocation.Equals(DefaultRelativeLocation, 2.f))
 		{
 			GetCharacterOwner()->GetMesh()->SetRelativeLocation(DefaultRelativeLocation);
 		}
 		else
 		{
-			GetCharacterOwner()->GetMesh()->SetRelativeLocation(DesiredRelativeLocation);
+			GetCharacterOwner()->GetMesh()->SetRelativeLocation(PulledDesiredRelativeLocation);
 		}
 	}
 
