@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "UObject/Interface.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "SpawnCharacterSystem.generated.h"
 
 class ACoreCharacter;
@@ -114,6 +115,17 @@ class ISpawnLocationInterface
 {
 	GENERATED_IINTERFACE_BODY()
 	
+public:
 	virtual bool GetSpawnTransform(TSubclassOf<ACoreCharacter> CoreCharacter, FTransform& SpawnTransform) PURE_VIRTUAL(ISpawnLocationInterface::GetSpawnTransform, return false;);
 	virtual bool HasAvailableSpawnTransform(TSubclassOf<ACoreCharacter> CoreCharacter) const PURE_VIRTUAL(ISpawnLocationInterface::HasAvailableSpawnTransform, return false;);
+};
+
+UCLASS()
+class USpawnLocationSystemLibrary : public UBlueprintFunctionLibrary
+{
+	GENERATED_UCLASS_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category = SpawnLocation)
+	static bool GetSpawnLocation(TScriptInterface<ISpawnLocationInterface> Target, TSubclassOf<ACoreCharacter> CoreCharacter, FTransform& SpawnTransform);
 };
