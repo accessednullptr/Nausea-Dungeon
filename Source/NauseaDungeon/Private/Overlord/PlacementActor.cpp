@@ -18,6 +18,12 @@ UPlacementMarkerComponent::UPlacementMarkerComponent(const FObjectInitializer& O
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	SetCastShadow(false);
 	SetCanEverAffectNavigation(false);
+	bVisibleInReflectionCaptures = false;
+	bVisibleInRealTimeSkyCaptures = false;
+	bVisibleInRayTracing = false;
+	bRenderInMainPass = true;
+	bRenderInDepthPass = true;
+	bUseAsOccluder = false;
 }
 
 void UPlacementMarkerComponent::SetPlacementFlags(uint8 PlacementFlags)
