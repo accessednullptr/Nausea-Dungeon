@@ -15,7 +15,12 @@ UCLASS()
 class NAUSEADUNGEON_API ADungeonPlayerState : public ACorePlayerState
 {
 	GENERATED_UCLASS_BODY()
-	
+
+//~ Begin AActor Interface
+protected:
+	virtual void BeginPlay() override;
+//~ End AActor Interface
+
 public:
 	UFUNCTION(BlueprintCallable, Category = Dungeon)
 	int32 GetTrapCoins() const;
@@ -39,5 +44,5 @@ protected:
 
 protected:
 	UPROPERTY(ReplicatedUsing = OnRep_TrapCoins, Transient)
-	int32 TrapCoins = 10000;
+	int32 TrapCoins = 0;
 };

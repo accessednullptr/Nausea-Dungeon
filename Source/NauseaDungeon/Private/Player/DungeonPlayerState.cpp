@@ -3,6 +3,9 @@
 
 #include "Player/DungeonPlayerState.h"
 #include "NauseaNetDefines.h"
+#include "System/CoreWorldSettings.h"
+#include "Overlord/DungeonGameMode.h"
+#include "Overlord/DungeonGameModeSettings.h"
 
 ADungeonPlayerState::ADungeonPlayerState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -15,6 +18,19 @@ void ADungeonPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_WITH_PARAMS_FAST(ADungeonPlayerState, TrapCoins, PushReplicationParams::Default);
+}
+
+void ADungeonPlayerState::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	if (ACoreWorldSettings* WorldSettings = Cast<ACoreWorldSettings>(GetWorldSettings()))
+	{
+		if (UDungeonGameModeSettings* GameModeSettings = WorldSettings->GetGameModeSettings<UDungeonGameModeSettings>())
+		{
+			SetTrapCoins(GameModeSettings->CalculateStartingTrapCoinAmount(GetWorld()->GetAuthGameMode<ADungeonGameMode>()));
+		}
+	}
 }
 
 int32 ADungeonPlayerState::GetTrapCoins() const

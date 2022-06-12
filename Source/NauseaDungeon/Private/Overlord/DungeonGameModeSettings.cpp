@@ -12,6 +12,26 @@ UDungeonGameModeSettings::UDungeonGameModeSettings(const FObjectInitializer& Obj
 
 }
 
+int64 UDungeonGameModeSettings::CalculateStartingGameHealth(ADungeonGameMode* GameMode) const
+{
+	if(!GameMode)
+	{
+		return StartingGameHealth;
+	}
+
+	return GameMode->ProcessStartingGameHealth(StartingGameHealth);
+}
+
+int32 UDungeonGameModeSettings::CalculateStartingTrapCoinAmount(ADungeonGameMode* GameMode) const
+{
+	if (!GameMode)
+	{
+		return StartingTrapCoinAmount;
+	}
+
+	return GameMode->ProcessStartingTrapCoinAmount(StartingTrapCoinAmount);
+}
+
 UDungeonWaveSetup::UDungeonWaveSetup(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {

@@ -9,11 +9,29 @@
 #include "DungeonGameModeSettings.generated.h"
 
 class ADungeonCharacter;
+class ADungeonGameMode;
 
 UCLASS()
 class NAUSEADUNGEON_API UDungeonGameModeSettings : public UCoreGameModeSettings
 {
 	GENERATED_UCLASS_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category = DungeonGameMode)
+	int64 CalculateStartingGameHealth(ADungeonGameMode* GameMode) const;
+
+	UFUNCTION(BlueprintCallable, Category = DungeonGameMode)
+	int32 CalculateStartingTrapCoinAmount(ADungeonGameMode* GameMode) const;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = DungeonGameMode)
+	int64 StartingGameHealth = 100;
+
+	UPROPERTY(EditDefaultsOnly, Category = DungeonGameMode)
+	int32 StartingTrapCoinAmount = 1000;
+
+	UPROPERTY(EditDefaultsOnly, Category = DungeonGameMode)
+	int64 FinalWaveOverride = -1;
 };
 
 
