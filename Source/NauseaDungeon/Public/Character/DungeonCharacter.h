@@ -30,6 +30,7 @@ public:
 
 public:
 	int32 GetCoinValue() const;
+	int32 GetGameDamageValue() const;
 
 	void NotifyCharacterUnableToPath();
 
@@ -48,6 +49,10 @@ protected:
 	//Curve applied specially to this character based on wave.
 	UPROPERTY(EditDefaultsOnly, Category = Dungeon)
 	UCurveFloat* BaseCoinValueWaveScale = nullptr;
+
+	//Amount of damage this character applies once it arrives at an end point.
+	UPROPERTY(EditDefaultsOnly, Category = Dungeon)
+	int32 BaseGameDamageValue = 5;
 
 	UPROPERTY(EditDefaultsOnly, Category = Dungeon)
 	TSubclassOf<UDungeonCharacterDescription> CharacterDescription = nullptr;

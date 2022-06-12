@@ -179,6 +179,11 @@ int32 ADungeonCharacter::GetCoinValue() const
 	return BaseCoinValue;
 }
 
+int32 ADungeonCharacter::GetGameDamageValue() const
+{
+	return BaseGameDamageValue;
+}
+
 void ADungeonCharacter::NotifyCharacterUnableToPath()
 {
 	TeleportTo(SpawnLocation, GetActorRotation());
