@@ -233,18 +233,12 @@ void UCorePathFollowingComponent::UpdateIgnoredByCrowdManager()
 		return;
 	}
 
-	//This isn't good enough... UCrowdFollowingComponent::SetCrowdSimulation wants our status to be IDLE when changing states... I guess we need to abort the move?
 	if (GetStatus() != EPathFollowingStatus::Idle)
 	{
-		PauseMove(GetCurrentRequestId(), EPathFollowingVelocityMode::Keep);
+		AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, GetCurrentRequestId(), EPathFollowingVelocityMode::Keep);
 	}
 
 	SetCrowdSimulationState(bIgnoredByCrowdManager ? ECrowdSimulationState::Disabled : DefaultCrowdSimulationState);
-
-	if (GetStatus() == EPathFollowingStatus::Paused)
-	{
-		ResumeMove(GetCurrentRequestId());
-	}
 }
 
 void UCorePathFollowingComponent::UpdatePerformPanicMovement()
