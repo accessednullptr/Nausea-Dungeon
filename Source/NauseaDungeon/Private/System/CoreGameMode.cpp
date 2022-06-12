@@ -14,7 +14,7 @@ const FString ACoreGameMode::OptionModifiers = FString(TEXT("Modifiers"));
 ACoreGameMode::ACoreGameMode(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
+	GameStateClass = ACoreGameState::StaticClass();
 }
 
 void ACoreGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
