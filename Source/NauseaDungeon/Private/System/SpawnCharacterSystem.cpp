@@ -204,11 +204,27 @@ void USpawnCharacterSystem::PerformNextSpawn()
 			}
 
 			WeakThis->PerformNextSpawn();
-		}), 0.075f, false);
+		}), 0.025f, false);
 }
 
 USpawnLocationInterface::USpawnLocationInterface(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 
+}
+
+USpawnLocationSystemLibrary::USpawnLocationSystemLibrary(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+
+}
+
+bool USpawnLocationSystemLibrary::GetSpawnLocation(TScriptInterface<ISpawnLocationInterface> Target, TSubclassOf<ACoreCharacter> CoreCharacter, FTransform& SpawnTransform)
+{
+	if (!Target)
+	{
+		return false;
+	}
+
+	return Target->GetSpawnTransform(CoreCharacter, SpawnTransform);
 }
